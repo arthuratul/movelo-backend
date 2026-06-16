@@ -1,19 +1,28 @@
 import {
   BadRequestException,
   ConflictException,
+  ForbiddenException,
   Injectable,
+  UnauthorizedException,
 } from '@nestjs/common';
+import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcrypt';
 import * as crypto from 'crypto';
 import { PrismaService } from '../prisma/prisma.service';
 import { MailService } from '../mail/mail.service';
 import { SignupDto } from './dto/signup.dto';
+import { AuthorizeDto } from './dto/authorize.dto';
+import { TokenDto } from './dto/token.dto';
+
+const AUTH_CODE_TTL_MS = 5 * 60 * 1000; // 5 minutes
+const REFRESH_TOKEN_TTL_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
 
 @Injectable()
 export class AuthService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly mail: MailService,
+    private readonly jwt: JwtService,
   ) {}
 
   async signup(dto: SignupDto) {
@@ -86,5 +95,151 @@ export class AuthService {
         emailVerificationTokenExpiry: null,
       },
     });
+  }
+
+  async authorize(dto: AuthorizeDto) {
+    const user = await this.prisma.user.findUnique({
+      where: { email: dto.email },
+    });
+
+    if (!user || !(await bcrypt.compare(dto.password, user.password))) {
+      throw new UnauthorizedException('Invalid credentials');
+    }
+
+    if (!user.emailVerified) {
+      throw new ForbiddenException('Email address is not verified');
+    }
+
+    const code = crypto.randomBytes(32).toString('hex');
+    const expiresAt = new Date(Date.now() + AUTH_CODE_TTL_MS);
+
+    await this.prisma.authorizationCode.create({
+      data: {
+        code,
+        userId: user.id,
+        codeChallenge: dto.code_challenge,
+        codeChallengeMethod: dto.code_challenge_method,
+        expiresAt,
+      },
+    });
+
+    return { code };
+  }
+
+  async exchangeToken(dto: TokenDto) {
+    if (dto.grant_type === 'authorization_code') {
+      return this.exchangeAuthCode(dto);
+    }
+    return this.exchangeRefreshToken(dto);
+  }
+
+  private async exchangeAuthCode(dto: TokenDto) {
+    if (!dto.code || !dto.code_verifier) {
+      throw new BadRequestException('code and code_verifier are required');
+    }
+
+    const authCode = await this.prisma.authorizationCode.findUnique({
+      where: { code: dto.code },
+      include: { user: { select: { id: true, email: true } } },
+    });
+
+    if (!authCode) {
+      throw new UnauthorizedException('Invalid authorization code');
+    }
+
+    if (authCode.used) {
+      // Code reuse — potential replay attack, revoke all tokens for this user
+      await this.prisma.refreshToken.updateMany({
+        where: { userId: authCode.userId },
+        data: { revoked: true },
+      });
+      throw new UnauthorizedException('Authorization code already used');
+    }
+
+    if (authCode.expiresAt < new Date()) {
+      throw new UnauthorizedException('Authorization code has expired');
+    }
+
+    if (!this.verifyCodeChallenge(dto.code_verifier, authCode.codeChallenge)) {
+      throw new UnauthorizedException('Invalid code verifier');
+    }
+
+    await this.prisma.authorizationCode.update({
+      where: { id: authCode.id },
+      data: { used: true },
+    });
+
+    return this.issueTokens(authCode.user.id, authCode.user.email);
+  }
+
+  private async exchangeRefreshToken(dto: TokenDto) {
+    if (!dto.refresh_token) {
+      throw new BadRequestException('refresh_token is required');
+    }
+
+    const stored = await this.prisma.refreshToken.findUnique({
+      where: { token: dto.refresh_token },
+      include: { user: { select: { id: true, email: true } } },
+    });
+
+    if (!stored || stored.revoked) {
+      throw new UnauthorizedException('Invalid refresh token');
+    }
+
+    if (stored.expiresAt < new Date()) {
+      throw new UnauthorizedException('Refresh token has expired');
+    }
+
+    // Rotate: revoke old token before issuing new one
+    await this.prisma.refreshToken.update({
+      where: { id: stored.id },
+      data: { revoked: true },
+    });
+
+    return this.issueTokens(stored.user.id, stored.user.email);
+  }
+
+  async logout(refreshToken: string) {
+    const stored = await this.prisma.refreshToken.findUnique({
+      where: { token: refreshToken },
+    });
+
+    if (!stored || stored.revoked) {
+      return;
+    }
+
+    await this.prisma.refreshToken.update({
+      where: { id: stored.id },
+      data: { revoked: true },
+    });
+  }
+
+  private async issueTokens(userId: string, email: string) {
+    const accessToken = this.jwt.sign({ sub: userId, email });
+
+    const rawRefreshToken = crypto.randomBytes(40).toString('hex');
+    const expiresAt = new Date(Date.now() + REFRESH_TOKEN_TTL_MS);
+
+    await this.prisma.refreshToken.create({
+      data: { token: rawRefreshToken, userId, expiresAt },
+    });
+
+    return {
+      access_token: accessToken,
+      refresh_token: rawRefreshToken,
+      token_type: 'Bearer',
+      expires_in: 900, // 15 minutes in seconds
+    };
+  }
+
+  private verifyCodeChallenge(verifier: string, challenge: string): boolean {
+    const computed = crypto
+      .createHash('sha256')
+      .update(verifier)
+      .digest('base64')
+      .replace(/\+/g, '-')
+      .replace(/\//g, '_')
+      .replace(/=/g, '');
+    return computed === challenge;
   }
 }
