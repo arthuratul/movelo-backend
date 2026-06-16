@@ -1,0 +1,13 @@
+model AuthorizationCode {
+  id                  String   @id @default(uuid())
+  code                String   @unique
+  userId              String
+  user                User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  codeChallenge       String
+  codeChallengeMethod String
+  expiresAt           DateTime
+  used                Boolean  @default(false)
+  createdAt           DateTime @default(now())
+
+  @@map("authorization_codes")
+}
