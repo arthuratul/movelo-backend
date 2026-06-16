@@ -11,6 +11,7 @@ model User {
   updatedAt                    DateTime            @updatedAt
   authorizationCodes           AuthorizationCode[]
   refreshTokens                RefreshToken[]
+  profile                      Profile?
 
   @@map("users")
 }
