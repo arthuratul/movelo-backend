@@ -1,6 +1,12 @@
 import { IsEmail, IsIn, IsString, Length, MinLength } from 'class-validator';
 
 export class AuthorizeDto {
+  @IsString()
+  client_id: string;
+
+  @IsString()
+  client_secret: string;
+
   @IsEmail()
   email: string;
 

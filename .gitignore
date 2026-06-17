@@ -46,6 +46,9 @@ lerna-debug.log*
 .temp
 .tmp
 
+# RSA keys — never commit
+storage/*.pem
+
 # Runtime data
 pids
 *.pid

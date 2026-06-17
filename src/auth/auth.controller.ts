@@ -14,8 +14,10 @@ import { AuthService } from './auth.service';
 import { AuthUser } from './decorators/auth-user.decorator';
 import { AuthorizeDto } from './dto/authorize.dto';
 import { LogoutDto } from './dto/logout.dto';
+import { RefreshDto } from './dto/refresh.dto';
 import { SignupDto } from './dto/signup.dto';
 import { TokenDto } from './dto/token.dto';
+import { ClientGuard } from './guards/client.guard';
 import { LoginGuard } from './guards/login.guard';
 import { RefreshTokenGuard } from './guards/refresh-token.guard';
 
@@ -46,30 +48,36 @@ export class AuthController {
 
   @Post('authorize')
   @HttpCode(HttpStatus.OK)
-  @UseGuards(LoginGuard)
+  @UseGuards(ClientGuard, LoginGuard)
   authorize(
-    @AuthUser() user: { userId: string; email: string },
+    @AuthUser() user: { userId: string; email: string; clientId: string },
     @Body() dto: AuthorizeDto,
   ) {
-    return this.authService.createAuthCode(user.userId, dto);
+    return this.authService.createAuthCode(user.userId, user.clientId, dto);
   }
 
   @Post('token')
   @HttpCode(HttpStatus.OK)
-  token(@Body() dto: TokenDto) {
-    return this.authService.exchangeToken(dto);
+  @UseGuards(ClientGuard)
+  token(
+    @Body() dto: TokenDto,
+    @Body('client_id') clientId: string,
+  ) {
+    return this.authService.exchangeToken(dto, clientId);
   }
 
   @Post('refresh')
   @HttpCode(HttpStatus.OK)
-  @UseGuards(RefreshTokenGuard)
+  @UseGuards(ClientGuard, RefreshTokenGuard)
   refresh(
     @AuthUser() token: { id: string; userId: string; userEmail: string },
+    @Body('client_id') clientId: string,
   ) {
     return this.authService.rotateRefreshToken(
       token.id,
       token.userId,
       token.userEmail,
+      clientId,
     );
   }
 
