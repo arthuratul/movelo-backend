@@ -1,4 +1,5 @@
 import { Injectable } from '@nestjs/common';
+import { Command, Option } from 'nestjs-command';
 import * as bcrypt from 'bcrypt';
 import * as crypto from 'node:crypto';
 import { PrismaService } from '../../prisma/prisma.service';
@@ -7,7 +8,26 @@ import { PrismaService } from '../../prisma/prisma.service';
 export class CreateOAuthClientCommand {
   constructor(private readonly prisma: PrismaService) {}
 
-  async run(name: string, clientId: string): Promise<void> {
+  @Command({
+    command: 'oauth:create-client',
+    describe: 'Create a new OAuth client',
+  })
+  async run(
+    @Option({
+      name: 'name',
+      describe: 'Client display name',
+      type: 'string',
+      required: true,
+    })
+    name: string,
+    @Option({
+      name: 'client-id',
+      describe: 'Unique client identifier',
+      type: 'string',
+      required: true,
+    })
+    clientId: string,
+  ): Promise<void> {
     const existing = await this.prisma.oAuthClient.findUnique({
       where: { clientId },
     });
@@ -28,6 +48,8 @@ export class CreateOAuthClientCommand {
     console.log(`  name:          ${name}`);
     console.log(`  client_id:     ${clientId}`);
     console.log(`  client_secret: ${plainSecret}`);
-    console.log('\n⚠  Store the client_secret now — it will not be shown again.\n');
+    console.log(
+      '\n⚠  Store the client_secret now — it will not be shown again.\n',
+    );
   }
 }
