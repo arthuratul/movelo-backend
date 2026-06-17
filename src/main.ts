@@ -6,10 +6,14 @@ import helmet from 'helmet';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
-  app.use(helmet());
-  app.useGlobalPipes(new ValidationPipe({ whitelist: true }));
-  app.enableCors();
   const configService = app.get(ConfigService);
+  app.use(helmet());
+  app.enableCors({
+    origin: configService.get<string>('FRONTEND_URL'),
+    methods: ['GET', 'POST', 'PATCH', 'DELETE'],
+    credentials: true,
+  });
+  app.useGlobalPipes(new ValidationPipe({ whitelist: true }));
   await app.listen(configService.get<number>('PORT') ?? 3000);
 }
 bootstrap();
