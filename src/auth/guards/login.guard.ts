@@ -33,7 +33,7 @@ export class LoginGuard implements CanActivate {
       ]);
     }
 
-    request.user = user;
+    request.user = { ...user, clientId: request.oauthClient!.clientId };
     return true;
   }
 }

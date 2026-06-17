@@ -1,0 +1,11 @@
+model OAuthClient {
+  id                String              @id @default(uuid())
+  clientId          String              @unique
+  clientSecret      String
+  name              String
+  createdAt         DateTime            @default(now())
+  authorizationCodes AuthorizationCode[]
+  refreshTokens     RefreshToken[]
+
+  @@map("oauth_clients")
+}
