@@ -25,8 +25,10 @@ export class RefreshTokenGuard implements CanActivate {
       ]);
     }
 
-    const tokenRecord =
-      await this.authService.validateRefreshToken(refresh_token);
+    const tokenRecord = await this.authService.validateRefreshToken(
+      refresh_token,
+      request.oauthClient!.id,
+    );
 
     if (!tokenRecord) {
       throw new UnprocessableEntityException([

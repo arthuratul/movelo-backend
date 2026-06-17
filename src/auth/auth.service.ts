@@ -115,6 +115,7 @@ export class AuthService {
 
   async createAuthCode(
     userId: string,
+    clientId: string,
     dto: Pick<AuthorizeDto, 'code_challenge' | 'code_challenge_method'>,
   ) {
     const code = crypto.randomBytes(32).toString('hex');
@@ -126,6 +127,7 @@ export class AuthService {
       data: {
         code,
         userId,
+        clientId,
         codeChallenge: dto.code_challenge,
         codeChallengeMethod: dto.code_challenge_method,
         expiresAt,
@@ -137,13 +139,19 @@ export class AuthService {
 
   async validateRefreshToken(
     token: string,
+    clientId: string,
   ): Promise<{ id: string; userId: string; userEmail: string } | null> {
     const stored = await this.prisma.refreshToken.findUnique({
       where: { token },
       include: { user: { select: { id: true, email: true } } },
     });
 
-    if (!stored || stored.revoked || stored.expiresAt < new Date()) {
+    if (
+      !stored ||
+      stored.revoked ||
+      stored.expiresAt < new Date() ||
+      stored.clientId !== clientId
+    ) {
       return null;
     }
 
@@ -154,24 +162,17 @@ export class AuthService {
     storedTokenId: string,
     userId: string,
     email: string,
+    clientId: string,
   ) {
     await this.prisma.refreshToken.update({
       where: { id: storedTokenId },
       data: { revoked: true },
     });
 
-    return this.issueTokens(userId, email);
+    return this.issueTokens(userId, email, clientId);
   }
 
-  async exchangeToken(dto: TokenDto) {
-    return this.exchangeAuthCode(dto);
-  }
-
-  private async exchangeAuthCode(dto: TokenDto) {
-    if (!dto.code || !dto.code_verifier) {
-      throw new BadRequestException('code and code_verifier are required');
-    }
-
+  async exchangeToken(dto: TokenDto, clientId: string) {
     const authCode = await this.prisma.authorizationCode.findUnique({
       where: { code: dto.code },
       include: { user: { select: { id: true, email: true } } },
@@ -181,10 +182,14 @@ export class AuthService {
       throw new UnauthorizedException('Invalid authorization code');
     }
 
+    if (authCode.clientId !== clientId) {
+      throw new UnauthorizedException('Authorization code was not issued to this client');
+    }
+
     if (authCode.used) {
-      // Code reuse — potential replay attack, revoke all tokens for this user
+      // Code reuse — potential replay attack, revoke all tokens for this user+client
       await this.prisma.refreshToken.updateMany({
-        where: { userId: authCode.userId },
+        where: { userId: authCode.userId, clientId },
         data: { revoked: true },
       });
       throw new UnauthorizedException('Authorization code already used');
@@ -203,7 +208,7 @@ export class AuthService {
       data: { used: true },
     });
 
-    return this.issueTokens(authCode.user.id, authCode.user.email);
+    return this.issueTokens(authCode.user.id, authCode.user.email, clientId);
   }
 
   async logout(refreshToken: string) {
@@ -221,15 +226,16 @@ export class AuthService {
     });
   }
 
-  private async issueTokens(userId: string, email: string) {
-    const accessToken = this.jwt.sign({ sub: userId, email });
+  private async issueTokens(userId: string, email: string, clientId: string) {
+    const accessToken = this.jwt.sign({ sub: userId, email, clientId });
 
     const rawRefreshToken = crypto.randomBytes(40).toString('hex');
-    const refreshTtlMs = this.config.get<number>('REFRESH_TOKEN_TTL_SECONDS')! * 1000;
+    const refreshTtlMs =
+      this.config.get<number>('REFRESH_TOKEN_TTL_SECONDS')! * 1000;
     const expiresAt = new Date(Date.now() + refreshTtlMs);
 
     await this.prisma.refreshToken.create({
-      data: { token: rawRefreshToken, userId, expiresAt },
+      data: { token: rawRefreshToken, userId, clientId, expiresAt },
     });
 
     return {

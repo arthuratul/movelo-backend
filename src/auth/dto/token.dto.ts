@@ -1,18 +1,18 @@
-import { IsIn, IsOptional, IsString } from 'class-validator';
+import { IsIn, IsString } from 'class-validator';
 
 export class TokenDto {
-  @IsIn(['authorization_code', 'refresh_token'])
-  grant_type: 'authorization_code' | 'refresh_token';
-
-  @IsOptional()
   @IsString()
-  code?: string;
+  client_id: string;
 
-  @IsOptional()
   @IsString()
-  code_verifier?: string;
+  client_secret: string;
 
-  @IsOptional()
+  @IsIn(['authorization_code'])
+  grant_type: 'authorization_code';
+
   @IsString()
-  refresh_token?: string;
+  code: string;
+
+  @IsString()
+  code_verifier: string;
 }
