@@ -13,7 +13,13 @@ async function bootstrap() {
     methods: ['GET', 'POST', 'PATCH', 'DELETE'],
     credentials: true,
   });
-  app.useGlobalPipes(new ValidationPipe({ whitelist: true }));
+  app.useGlobalPipes(
+    new ValidationPipe({
+      whitelist: true,
+      forbidNonWhitelisted: true,
+      transform: true,
+    }),
+  );
   await app.listen(configService.get<number>('PORT') ?? 3000);
 }
 bootstrap();
