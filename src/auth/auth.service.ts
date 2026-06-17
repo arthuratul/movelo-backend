@@ -6,16 +6,14 @@ import {
   UnauthorizedException,
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
+import { ConfigService } from '@nestjs/config';
 import * as bcrypt from 'bcrypt';
-import * as crypto from 'crypto';
+import * as crypto from 'node:crypto';
 import { PrismaService } from '../prisma/prisma.service';
 import { MailService } from '../mail/mail.service';
 import { SignupDto } from './dto/signup.dto';
 import { AuthorizeDto } from './dto/authorize.dto';
 import { TokenDto } from './dto/token.dto';
-
-const AUTH_CODE_TTL_MS = 5 * 60 * 1000; // 5 minutes
-const REFRESH_TOKEN_TTL_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
 
 @Injectable()
 export class AuthService {
@@ -23,6 +21,7 @@ export class AuthService {
     private readonly prisma: PrismaService,
     private readonly mail: MailService,
     private readonly jwt: JwtService,
+    private readonly config: ConfigService,
   ) {}
 
   async signup(dto: SignupDto) {
@@ -111,7 +110,8 @@ export class AuthService {
     }
 
     const code = crypto.randomBytes(32).toString('hex');
-    const expiresAt = new Date(Date.now() + AUTH_CODE_TTL_MS);
+    const authCodeTtlMs = this.config.get<number>('AUTH_CODE_TTL_SECONDS')! * 1000;
+    const expiresAt = new Date(Date.now() + authCodeTtlMs);
 
     await this.prisma.authorizationCode.create({
       data: {
@@ -218,7 +218,8 @@ export class AuthService {
     const accessToken = this.jwt.sign({ sub: userId, email });
 
     const rawRefreshToken = crypto.randomBytes(40).toString('hex');
-    const expiresAt = new Date(Date.now() + REFRESH_TOKEN_TTL_MS);
+    const refreshTtlMs = this.config.get<number>('REFRESH_TOKEN_TTL_SECONDS')! * 1000;
+    const expiresAt = new Date(Date.now() + refreshTtlMs);
 
     await this.prisma.refreshToken.create({
       data: { token: rawRefreshToken, userId, expiresAt },
@@ -228,7 +229,7 @@ export class AuthService {
       access_token: accessToken,
       refresh_token: rawRefreshToken,
       token_type: 'Bearer',
-      expires_in: 900, // 15 minutes in seconds
+      expires_in: this.config.get<number>('JWT_ACCESS_EXPIRES_IN')!,
     };
   }
 
@@ -237,9 +238,9 @@ export class AuthService {
       .createHash('sha256')
       .update(verifier)
       .digest('base64')
-      .replace(/\+/g, '-')
-      .replace(/\//g, '_')
-      .replace(/=/g, '');
+      .replaceAll('+', '-')
+      .replaceAll('/', '_')
+      .replaceAll('=', '');
     return computed === challenge;
   }
 }
