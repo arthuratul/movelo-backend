@@ -7,13 +7,17 @@ import {
   Post,
   Query,
   Redirect,
+  UseGuards,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { AuthService } from './auth.service';
+import { AuthUser } from './decorators/auth-user.decorator';
 import { AuthorizeDto } from './dto/authorize.dto';
 import { LogoutDto } from './dto/logout.dto';
 import { SignupDto } from './dto/signup.dto';
 import { TokenDto } from './dto/token.dto';
+import { LoginGuard } from './guards/login.guard';
+import { RefreshTokenGuard } from './guards/refresh-token.guard';
 
 @Controller('auth')
 export class AuthController {
@@ -42,14 +46,31 @@ export class AuthController {
 
   @Post('authorize')
   @HttpCode(HttpStatus.OK)
-  authorize(@Body() dto: AuthorizeDto) {
-    return this.authService.authorize(dto);
+  @UseGuards(LoginGuard)
+  authorize(
+    @AuthUser() user: { userId: string; email: string },
+    @Body() dto: AuthorizeDto,
+  ) {
+    return this.authService.createAuthCode(user.userId, dto);
   }
 
   @Post('token')
   @HttpCode(HttpStatus.OK)
   token(@Body() dto: TokenDto) {
     return this.authService.exchangeToken(dto);
+  }
+
+  @Post('refresh')
+  @HttpCode(HttpStatus.OK)
+  @UseGuards(RefreshTokenGuard)
+  refresh(
+    @AuthUser() token: { id: string; userId: string; userEmail: string },
+  ) {
+    return this.authService.rotateRefreshToken(
+      token.id,
+      token.userId,
+      token.userEmail,
+    );
   }
 
   @Post('logout')
