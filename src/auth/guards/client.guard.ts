@@ -9,7 +9,7 @@ import { OAuthClientService } from '../services/oauth-client.service';
 
 declare module 'express' {
   interface Request {
-    oauthClient?: { id: string; clientId: string; name: string };
+    oauthClient?: { id: string; name: string };
   }
 }
 

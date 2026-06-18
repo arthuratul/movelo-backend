@@ -4,7 +4,6 @@ import { PrismaService } from '../../prisma/prisma.service';
 
 export interface ValidatedClient {
   id: string;
-  clientId: string;
   name: string;
 }
 
@@ -13,11 +12,11 @@ export class OAuthClientService {
   constructor(private readonly prisma: PrismaService) {}
 
   async validateClient(
-    clientId: string,
+    id: string,
     clientSecret: string,
   ): Promise<ValidatedClient | null> {
     const client = await this.prisma.oAuthClient.findUnique({
-      where: { clientId },
+      where: { id },
     });
 
     if (!client) {
@@ -29,6 +28,6 @@ export class OAuthClientService {
       return null;
     }
 
-    return { id: client.id, clientId: client.clientId, name: client.name };
+    return { id: client.id, name: client.name };
   }
 }
