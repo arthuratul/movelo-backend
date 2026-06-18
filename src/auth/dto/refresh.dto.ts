@@ -5,8 +5,5 @@ export class RefreshDto {
   client_id: string;
 
   @IsString()
-  client_secret: string;
-
-  @IsString()
   refresh_token: string;
 }

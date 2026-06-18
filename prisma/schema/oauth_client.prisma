@@ -1,10 +1,17 @@
+enum ClientType {
+  PUBLIC
+  CONFIDENTIAL
+}
+
 model OAuthClient {
-  id                String              @id @default(uuid())
-  clientSecret      String
-  name              String
-  createdAt         DateTime            @default(now())
+  id                 String              @id @default(uuid())
+  clientSecret       String?
+  clientType         ClientType          @default(PUBLIC)
+  name               String
+  redirectUris       String[]
+  createdAt          DateTime            @default(now())
   authorizationCodes AuthorizationCode[]
-  refreshTokens     RefreshToken[]
+  refreshTokens      RefreshToken[]
 
   @@map("oauth_clients")
 }

@@ -5,9 +5,16 @@ import * as bcrypt from 'bcrypt';
 jest.mock('../prisma/prisma.service.js', () => ({
   PrismaService: jest.fn(),
 }));
+jest.mock('../mail/mail.service.js', () => ({
+  MailService: jest.fn(),
+}));
 
+import { JwtService } from '@nestjs/jwt';
+import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../prisma/prisma.service.js';
+import { MailService } from '../mail/mail.service.js';
 import { AuthService } from './auth.service.js';
+import { OAuthClientService } from './services/oauth-client.service.js';
 import { SignupDto } from './dto/signup.dto.js';
 
 const mockPrisma = {
@@ -16,6 +23,11 @@ const mockPrisma = {
     create: jest.fn(),
   },
 };
+
+const mockMailService = { sendConfirmationEmail: jest.fn() };
+const mockJwtService = { sign: jest.fn() };
+const mockConfigService = { get: jest.fn(), getOrThrow: jest.fn() };
+const mockOAuthClientService = { findById: jest.fn() };
 
 const signupDto: SignupDto = {
   firstName: 'John',
@@ -40,6 +52,10 @@ describe('AuthService', () => {
       providers: [
         AuthService,
         { provide: PrismaService, useValue: mockPrisma },
+        { provide: MailService, useValue: mockMailService },
+        { provide: JwtService, useValue: mockJwtService },
+        { provide: ConfigService, useValue: mockConfigService },
+        { provide: OAuthClientService, useValue: mockOAuthClientService },
       ],
     }).compile();
 
@@ -51,6 +67,7 @@ describe('AuthService', () => {
     it('creates a user and returns them without the password', async () => {
       mockPrisma.user.findUnique.mockResolvedValue(null);
       mockPrisma.user.create.mockResolvedValue(createdUser);
+      mockMailService.sendConfirmationEmail.mockResolvedValue(undefined);
 
       const result = await service.signup(signupDto);
 
@@ -61,6 +78,7 @@ describe('AuthService', () => {
     it('hashes the password before saving', async () => {
       mockPrisma.user.findUnique.mockResolvedValue(null);
       mockPrisma.user.create.mockResolvedValue(createdUser);
+      mockMailService.sendConfirmationEmail.mockResolvedValue(undefined);
 
       await service.signup(signupDto);
 
@@ -86,6 +104,7 @@ describe('AuthService', () => {
     it('looks up the user by the provided email', async () => {
       mockPrisma.user.findUnique.mockResolvedValue(null);
       mockPrisma.user.create.mockResolvedValue(createdUser);
+      mockMailService.sendConfirmationEmail.mockResolvedValue(undefined);
 
       await service.signup(signupDto);
 

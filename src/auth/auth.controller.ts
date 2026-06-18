@@ -12,9 +12,9 @@ import {
 import { ConfigService } from '@nestjs/config';
 import { AuthService } from './auth.service';
 import { AuthUser } from './decorators/auth-user.decorator';
-import { AuthorizeDto } from './dto/authorize.dto';
+import { AuthorizeLoginDto } from './dto/authorize-login.dto';
+import { AuthorizeQueryDto } from './dto/authorize-query.dto';
 import { LogoutDto } from './dto/logout.dto';
-import { RefreshDto } from './dto/refresh.dto';
 import { SignupDto } from './dto/signup.dto';
 import { TokenDto } from './dto/token.dto';
 import { ClientGuard } from './guards/client.guard';
@@ -46,12 +46,19 @@ export class AuthController {
     }
   }
 
-  @Post('authorize')
+  @Get('authorize')
+  @Redirect()
+  async authorize(@Query() dto: AuthorizeQueryDto) {
+    const url = await this.authService.initiateAuthorization(dto);
+    return { url };
+  }
+
+  @Post('authorize/login')
   @HttpCode(HttpStatus.OK)
   @UseGuards(ClientGuard, LoginGuard)
-  authorize(
+  authorizeLogin(
     @AuthUser() user: { userId: string; email: string; clientId: string },
-    @Body() dto: AuthorizeDto,
+    @Body() dto: AuthorizeLoginDto,
   ) {
     return this.authService.createAuthCode(user.userId, user.clientId, dto);
   }
