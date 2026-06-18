@@ -9,7 +9,7 @@ import { OAuthClientService } from '../services/oauth-client.service';
 
 declare module 'express' {
   interface Request {
-    oauthClient?: { id: string; name: string };
+    oauthClient?: { id: string; name: string; redirectUris: string[] };
   }
 }
 
@@ -19,21 +19,15 @@ export class ClientGuard implements CanActivate {
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
     const request = context.switchToHttp().getRequest<Request>();
-    const { client_id, client_secret } = request.body as {
-      client_id?: string;
-      client_secret?: string;
-    };
+    const { client_id } = request.body as { client_id?: string };
 
-    const client = await this.oauthClientService.validateClient(
-      client_id ?? '',
-      client_secret ?? '',
-    );
+    const client = await this.oauthClientService.findById(client_id ?? '');
 
     if (!client) {
       throw new UnprocessableEntityException([
         {
           property: 'client',
-          constraints: { client: 'Invalid client credentials' },
+          constraints: { client: 'Invalid client' },
           children: [],
         },
       ]);

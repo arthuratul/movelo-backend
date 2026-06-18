@@ -7,6 +7,8 @@ model AuthorizationCode {
   client              OAuthClient @relation(fields: [clientId], references: [id])
   codeChallenge       String
   codeChallengeMethod String
+  redirectUri         String
+  state               String?
   expiresAt           DateTime
   used                Boolean     @default(false)
   createdAt           DateTime    @default(now())

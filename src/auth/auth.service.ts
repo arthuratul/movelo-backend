@@ -11,8 +11,10 @@ import * as bcrypt from 'bcrypt';
 import * as crypto from 'node:crypto';
 import { PrismaService } from '../prisma/prisma.service';
 import { MailService } from '../mail/mail.service';
+import { OAuthClientService } from './services/oauth-client.service';
 import { SignupDto } from './dto/signup.dto';
-import { AuthorizeDto } from './dto/authorize.dto';
+import { AuthorizeQueryDto } from './dto/authorize-query.dto';
+import { AuthorizeLoginDto } from './dto/authorize-login.dto';
 import { TokenDto } from './dto/token.dto';
 
 @Injectable()
@@ -22,6 +24,7 @@ export class AuthService {
     private readonly mail: MailService,
     private readonly jwt: JwtService,
     private readonly config: ConfigService,
+    private readonly oauthClientService: OAuthClientService,
   ) {}
 
   async signup(dto: SignupDto) {
@@ -113,11 +116,40 @@ export class AuthService {
     return { userId: user.id, email: user.email };
   }
 
+  async initiateAuthorization(dto: AuthorizeQueryDto): Promise<string> {
+    const client = await this.oauthClientService.findById(dto.client_id);
+
+    if (!client) {
+      throw new BadRequestException('Unknown client_id');
+    }
+
+    if (!client.redirectUris.includes(dto.redirect_uri)) {
+      throw new BadRequestException('redirect_uri is not registered for this client');
+    }
+
+    const frontendUrl = this.config.getOrThrow<string>('FRONTEND_URL');
+    const params = new URLSearchParams({
+      client_id: dto.client_id,
+      redirect_uri: dto.redirect_uri,
+      code_challenge: dto.code_challenge,
+      code_challenge_method: dto.code_challenge_method,
+      ...(dto.state ? { state: dto.state } : {}),
+    });
+
+    return `${frontendUrl}/login?${params.toString()}`;
+  }
+
   async createAuthCode(
     userId: string,
     clientId: string,
-    dto: Pick<AuthorizeDto, 'code_challenge' | 'code_challenge_method'>,
+    dto: Pick<AuthorizeLoginDto, 'code_challenge' | 'code_challenge_method' | 'redirect_uri' | 'state'>,
   ) {
+    const client = await this.oauthClientService.findById(clientId);
+
+    if (!client || !client.redirectUris.includes(dto.redirect_uri)) {
+      throw new BadRequestException('redirect_uri is not registered for this client');
+    }
+
     const code = crypto.randomBytes(32).toString('hex');
     const authCodeTtlMs =
       this.config.get<number>('AUTH_CODE_TTL_SECONDS')! * 1000;
@@ -130,11 +162,16 @@ export class AuthService {
         clientId,
         codeChallenge: dto.code_challenge,
         codeChallengeMethod: dto.code_challenge_method,
+        redirectUri: dto.redirect_uri,
+        state: dto.state,
         expiresAt,
       },
     });
 
-    return { code };
+    const redirectParams = new URLSearchParams({ code });
+    if (dto.state) redirectParams.set('state', dto.state);
+
+    return { redirect_to: `${dto.redirect_uri}?${redirectParams.toString()}` };
   }
 
   async validateRefreshToken(
@@ -187,7 +224,6 @@ export class AuthService {
     }
 
     if (authCode.used) {
-      // Code reuse — potential replay attack, revoke all tokens for this user+client
       await this.prisma.refreshToken.updateMany({
         where: { userId: authCode.userId, clientId },
         data: { revoked: true },
@@ -199,7 +235,11 @@ export class AuthService {
       throw new UnauthorizedException('Authorization code has expired');
     }
 
-    if (!this.verifyCodeChallenge(dto.code_verifier, authCode.codeChallenge)) {
+    if (authCode.redirectUri !== dto.redirect_uri) {
+      throw new UnauthorizedException('redirect_uri does not match');
+    }
+
+    if (!this.verifyCodeChallenge(dto.code_verifier, authCode.codeChallenge, authCode.codeChallengeMethod)) {
       throw new UnauthorizedException('Invalid code verifier');
     }
 
@@ -246,7 +286,13 @@ export class AuthService {
     };
   }
 
-  private verifyCodeChallenge(verifier: string, challenge: string): boolean {
+  private verifyCodeChallenge(
+    verifier: string,
+    challenge: string,
+    method: string,
+  ): boolean {
+    if (method !== 'S256') return false;
+
     const computed = crypto
       .createHash('sha256')
       .update(verifier)
@@ -254,6 +300,14 @@ export class AuthService {
       .replaceAll('+', '-')
       .replaceAll('/', '_')
       .replaceAll('=', '');
-    return computed === challenge;
+
+    try {
+      return crypto.timingSafeEqual(
+        Buffer.from(computed),
+        Buffer.from(challenge),
+      );
+    } catch {
+      return false;
+    }
   }
 }

@@ -1,4 +1,5 @@
 import { Test, TestingModule } from '@nestjs/testing';
+import { ConfigService } from '@nestjs/config';
 
 jest.mock('./auth.service.js', () => ({
   AuthService: jest.fn(),
@@ -6,11 +7,15 @@ jest.mock('./auth.service.js', () => ({
 
 import { AuthController } from './auth.controller.js';
 import { AuthService } from './auth.service.js';
+import { OAuthClientService } from './services/oauth-client.service.js';
 import { SignupDto } from './dto/signup.dto.js';
 
 const mockAuthService = {
   signup: jest.fn(),
 };
+
+const mockConfigService = { get: jest.fn() };
+const mockOAuthClientService = { findById: jest.fn() };
 
 const signupDto: SignupDto = {
   firstName: 'John',
@@ -33,7 +38,11 @@ describe('AuthController', () => {
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       controllers: [AuthController],
-      providers: [{ provide: AuthService, useValue: mockAuthService }],
+      providers: [
+        { provide: AuthService, useValue: mockAuthService },
+        { provide: ConfigService, useValue: mockConfigService },
+        { provide: OAuthClientService, useValue: mockOAuthClientService },
+      ],
     }).compile();
 
     controller = module.get<AuthController>(AuthController);

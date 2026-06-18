@@ -8,7 +8,7 @@ NestJS REST API. PostgreSQL via Prisma, RS256 JWT, OAuth2 Authorization Code + P
 - **Prisma v7** — split schema files in `prisma/schema/`, generated client in `generated/prisma/`
 - **PostgreSQL** — AWS RDS in production
 - **JWT RS256** — RSA key pair stored in `storage/`
-- **OAuth2** — Authorization Code + PKCE, client credentials hashed with bcrypt
+- **OAuth2** — Standard Authorization Code + PKCE (RFC 7636 + RFC 8252), public clients only
 - **Swagger** — available at `/api/docs`
 
 ## Prerequisites
@@ -37,12 +37,12 @@ cp .env .env.local
 | `DATABASE_URL` | PostgreSQL connection string |
 | `PORT` | Server port (default 3000) |
 | `APP_URL` | Base URL of this API (e.g. `http://localhost:3000`) |
-| `FRONTEND_URL` | Frontend origin for CORS |
+| `FRONTEND_URL` | Frontend origin for CORS and login redirect (e.g. `http://localhost:3001`) |
 | `JWT_PRIVATE_KEY_PATH` | Path to RSA private key (e.g. `storage/private.pem`) |
 | `JWT_PUBLIC_KEY_PATH` | Path to RSA public key (e.g. `storage/public.pem`) |
-| `JWT_ACCESS_EXPIRES_IN` | Access token TTL (e.g. `15m`) |
-| `AUTH_CODE_TTL_SECONDS` | Authorization code TTL in seconds |
-| `REFRESH_TOKEN_TTL_SECONDS` | Refresh token TTL in seconds |
+| `JWT_ACCESS_EXPIRES_IN` | Access token TTL in seconds (e.g. `900`) |
+| `AUTH_CODE_TTL_SECONDS` | Authorization code TTL in seconds (e.g. `300`) |
+| `REFRESH_TOKEN_TTL_SECONDS` | Refresh token TTL in seconds (e.g. `2592000`) |
 | `MAIL_HOST` | SMTP host |
 | `MAIL_PORT` | SMTP port |
 | `MAIL_USER` | SMTP username |
@@ -66,10 +66,10 @@ npx prisma migrate deploy
 ### 5. Create an OAuth client
 
 ```bash
-npm run cli -- oauth:create-client --name "My App" --client-id my-app
+npm run cli -- oauth:create-client --name "Movelo SPA" --redirect-uri http://localhost:3001/auth/callback
 ```
 
-The client secret is printed once — store it securely.
+Repeat `--redirect-uri` for multiple URIs. The printed `client_id` is what your frontend/mobile app uses.
 
 ## Running
 
@@ -92,12 +92,61 @@ npm run cli -- --help
 
 | Command | Description |
 |---|---|
-| `oauth:create-client --name <name> --client-id <id>` | Create an OAuth client |
+| `oauth:create-client --name <name> --redirect-uri <uri>` | Create a public OAuth client |
 | `keys:generate` | Generate RSA key pair for JWT signing |
 
-## API Docs
+## OAuth2 Authorization Code + PKCE Flow
 
-Swagger UI is available at `/api/docs` when the server is running.
+This server implements the standard OAuth2 Authorization Code flow with PKCE (RFC 7636) for public clients (SPA, mobile). There is no `client_secret` — clients are identified by `client_id` and the PKCE `code_verifier`.
+
+```
+1. Client generates code_verifier (random 43-128 chars) and
+   code_challenge = BASE64URL(SHA256(code_verifier))
+
+2. Client opens system browser to:
+   GET /api/v1/auth/authorize
+     ?response_type=code
+     &client_id=<id>
+     &redirect_uri=<registered_uri>
+     &code_challenge=<challenge>
+     &code_challenge_method=S256
+     &state=<random_nonce>
+
+3. Server validates params, redirects browser to:
+   FRONTEND_URL/login?client_id=...&redirect_uri=...&code_challenge=...&state=...
+
+4. Frontend shows login form, user submits credentials.
+   Frontend calls:
+   POST /api/v1/auth/authorize/login
+   { email, password, client_id, redirect_uri, code_challenge, code_challenge_method, state }
+
+5. Server validates credentials, creates auth code, returns:
+   { redirect_to: "<redirect_uri>?code=<code>&state=<nonce>" }
+
+6. Frontend navigates browser to redirect_to.
+   OS delivers the redirect to the client app.
+
+7. Client validates state matches step 1, then calls:
+   POST /api/v1/auth/token
+   { grant_type: "authorization_code", client_id, code, redirect_uri, code_verifier }
+
+8. Server verifies PKCE, issues tokens:
+   { access_token, refresh_token, token_type, expires_in }
+```
+
+## API Endpoints
+
+| Method | Path | Description |
+|---|---|---|
+| `POST` | `/api/v1/auth/signup` | Register a new user |
+| `GET` | `/api/v1/auth/verify-email` | Verify email address |
+| `GET` | `/api/v1/auth/authorize` | Start OAuth2 authorization (redirects to frontend login) |
+| `POST` | `/api/v1/auth/authorize/login` | Submit credentials, receive redirect URL with auth code |
+| `POST` | `/api/v1/auth/token` | Exchange auth code + code_verifier for tokens |
+| `POST` | `/api/v1/auth/refresh` | Rotate refresh token |
+| `POST` | `/api/v1/auth/logout` | Revoke refresh token |
+
+Full interactive docs available at `/api/docs`.
 
 ## Tests
 
