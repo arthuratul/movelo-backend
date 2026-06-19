@@ -14,7 +14,7 @@ export class MailService {
     token: string,
   ) {
     const appUrl = this.config.get<string>('APP_URL');
-    const confirmUrl = `${appUrl}/auth/verify-email?token=${token}`;
+    const confirmUrl = `${appUrl}/api/v1/auth/verify-email?token=${token}`;
 
     await this.mailer.sendMail({
       to: user.email,
