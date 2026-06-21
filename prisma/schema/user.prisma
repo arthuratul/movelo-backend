@@ -1,7 +1,7 @@
 model User {
   id                           String              @id @default(uuid())
   email                        String              @unique
-  password                     String
+  password                     String?
   firstName                    String
   lastName                     String
   emailVerified                Boolean             @default(false)
@@ -12,6 +12,7 @@ model User {
   authorizationCodes           AuthorizationCode[]
   refreshTokens                RefreshToken[]
   profile                      Profile?
+  oauthAccounts                OAuthAccount[]
 
   @@map("users")
 }
