@@ -4,6 +4,12 @@ import { PassportStrategy } from '@nestjs/passport';
 import { Profile, Strategy } from 'passport-google-oauth20';
 import { AuthService } from '../auth.service';
 
+interface GoogleProfileEmail {
+  value: string;
+  type?: string;
+  verified?: string | boolean;
+}
+
 @Injectable()
 export class GoogleStrategy extends PassportStrategy(Strategy, 'google') {
   constructor(
@@ -18,14 +24,18 @@ export class GoogleStrategy extends PassportStrategy(Strategy, 'google') {
     });
   }
 
-  async validate(_accessToken: string, _refreshToken: string, profile: Profile) {
-    const email = profile.emails?.[0];
+  async validate(
+    _accessToken: string,
+    _refreshToken: string,
+    profile: Profile,
+  ) {
+    const email = profile.emails?.[0] as GoogleProfileEmail | undefined;
     return this.authService.findOrCreateGoogleUser({
       sub: profile.id,
       email: email!.value,
       firstName: profile.name?.givenName ?? '',
       lastName: profile.name?.familyName ?? '',
-      emailVerified: (email as any).verified === true || (email as any).verified === 'true',
+      emailVerified: email?.verified === true || email?.verified === 'true',
     });
   }
 }

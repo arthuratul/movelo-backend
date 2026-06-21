@@ -105,7 +105,11 @@ export class AuthService {
   ): Promise<{ userId: string; email: string } | null> {
     const user = await this.prisma.user.findUnique({ where: { email } });
 
-    if (!user || !user.password || !(await bcrypt.compare(password, user.password))) {
+    if (
+      !user ||
+      !user.password ||
+      !(await bcrypt.compare(password, user.password))
+    ) {
       return null;
     }
 
@@ -124,7 +128,9 @@ export class AuthService {
     }
 
     if (!client.redirectUris.includes(dto.redirect_uri)) {
-      throw new BadRequestException('redirect_uri is not registered for this client');
+      throw new BadRequestException(
+        'redirect_uri is not registered for this client',
+      );
     }
 
     const frontendUrl = this.config.getOrThrow<string>('FRONTEND_URL');
@@ -142,12 +148,17 @@ export class AuthService {
   async createAuthCode(
     userId: string,
     clientId: string,
-    dto: Pick<AuthorizeLoginDto, 'code_challenge' | 'code_challenge_method' | 'redirect_uri' | 'state'>,
+    dto: Pick<
+      AuthorizeLoginDto,
+      'code_challenge' | 'code_challenge_method' | 'redirect_uri' | 'state'
+    >,
   ) {
     const client = await this.oauthClientService.findById(clientId);
 
     if (!client || !client.redirectUris.includes(dto.redirect_uri)) {
-      throw new BadRequestException('redirect_uri is not registered for this client');
+      throw new BadRequestException(
+        'redirect_uri is not registered for this client',
+      );
     }
 
     const code = crypto.randomBytes(32).toString('hex');
@@ -192,7 +203,11 @@ export class AuthService {
       return null;
     }
 
-    return { id: stored.id, userId: stored.userId, userEmail: stored.user.email };
+    return {
+      id: stored.id,
+      userId: stored.userId,
+      userEmail: stored.user.email,
+    };
   }
 
   async rotateRefreshToken(
@@ -220,7 +235,9 @@ export class AuthService {
     }
 
     if (authCode.clientId !== clientId) {
-      throw new UnauthorizedException('Authorization code was not issued to this client');
+      throw new UnauthorizedException(
+        'Authorization code was not issued to this client',
+      );
     }
 
     if (authCode.used) {
@@ -239,7 +256,13 @@ export class AuthService {
       throw new UnauthorizedException('redirect_uri does not match');
     }
 
-    if (!this.verifyCodeChallenge(dto.code_verifier, authCode.codeChallenge, authCode.codeChallengeMethod)) {
+    if (
+      !this.verifyCodeChallenge(
+        dto.code_verifier,
+        authCode.codeChallenge,
+        authCode.codeChallengeMethod,
+      )
+    ) {
       throw new UnauthorizedException('Invalid code verifier');
     }
 

@@ -18,6 +18,10 @@ export class OAuthClientService {
 
     if (!client) return null;
 
-    return { id: client.id, name: client.name, redirectUris: client.redirectUris };
+    return {
+      id: client.id,
+      name: client.name,
+      redirectUris: client.redirectUris,
+    };
   }
 }

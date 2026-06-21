@@ -27,7 +27,9 @@ export class CreateOAuthClientCommand {
     })
     redirectUri: string | string[],
   ): Promise<void> {
-    const redirectUris = Array.isArray(redirectUri) ? redirectUri : [redirectUri];
+    const redirectUris = Array.isArray(redirectUri)
+      ? redirectUri
+      : [redirectUri];
 
     const client = await this.prisma.oAuthClient.create({
       data: {

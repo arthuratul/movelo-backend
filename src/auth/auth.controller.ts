@@ -68,10 +68,7 @@ export class AuthController {
   @Post('token')
   @HttpCode(HttpStatus.OK)
   @UseGuards(ClientGuard)
-  token(
-    @Body() dto: TokenDto,
-    @Body('client_id') clientId: string,
-  ) {
+  token(@Body() dto: TokenDto, @Body('client_id') clientId: string) {
     return this.authService.exchangeToken(dto, clientId);
   }
 
