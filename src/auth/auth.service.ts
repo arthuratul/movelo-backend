@@ -105,7 +105,7 @@ export class AuthService {
   ): Promise<{ userId: string; email: string } | null> {
     const user = await this.prisma.user.findUnique({ where: { email } });
 
-    if (!user || !(await bcrypt.compare(password, user.password))) {
+    if (!user || !user.password || !(await bcrypt.compare(password, user.password))) {
       return null;
     }
 
@@ -249,6 +249,52 @@ export class AuthService {
     });
 
     return this.issueTokens(authCode.user.id, authCode.user.email, clientId);
+  }
+
+  async findOrCreateGoogleUser(profile: {
+    sub: string;
+    email: string;
+    firstName: string;
+    lastName: string;
+    emailVerified: boolean;
+  }) {
+    const existing = await this.prisma.oAuthAccount.findUnique({
+      where: {
+        provider_providerAccountId: {
+          provider: 'google',
+          providerAccountId: profile.sub,
+        },
+      },
+      include: { user: true },
+    });
+
+    if (existing) return existing.user;
+
+    let user = await this.prisma.user.findUnique({
+      where: { email: profile.email },
+    });
+
+    if (!user) {
+      user = await this.prisma.user.create({
+        data: {
+          email: profile.email,
+          firstName: profile.firstName,
+          lastName: profile.lastName,
+          password: null,
+          emailVerified: profile.emailVerified,
+        },
+      });
+    }
+
+    await this.prisma.oAuthAccount.create({
+      data: {
+        userId: user.id,
+        provider: 'google',
+        providerAccountId: profile.sub,
+      },
+    });
+
+    return user;
   }
 
   async logout(refreshToken: string) {

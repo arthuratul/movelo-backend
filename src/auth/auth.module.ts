@@ -11,7 +11,9 @@ import { ClientGuard } from './guards/client.guard';
 import { LoginGuard } from './guards/login.guard';
 import { RefreshTokenGuard } from './guards/refresh-token.guard';
 import { OAuthClientService } from './services/oauth-client.service';
+import { GoogleStrategy } from './strategies/google.strategy';
 import { JwtStrategy } from './strategies/jwt.strategy';
+import { GoogleAuthGuard } from './guards/google-auth.guard';
 
 @Module({
   imports: [
@@ -40,9 +42,11 @@ import { JwtStrategy } from './strategies/jwt.strategy';
     AuthService,
     OAuthClientService,
     JwtStrategy,
+    GoogleStrategy,
     ClientGuard,
     LoginGuard,
     RefreshTokenGuard,
+    GoogleAuthGuard,
   ],
   exports: [JwtModule],
 })

@@ -9,6 +9,7 @@ import {
   Redirect,
   UseGuards,
 } from '@nestjs/common';
+import { AuthGuard } from '@nestjs/passport';
 import { ConfigService } from '@nestjs/config';
 import { AuthService } from './auth.service';
 import { AuthUser } from './decorators/auth-user.decorator';
@@ -18,6 +19,7 @@ import { LogoutDto } from './dto/logout.dto';
 import { SignupDto } from './dto/signup.dto';
 import { TokenDto } from './dto/token.dto';
 import { ClientGuard } from './guards/client.guard';
+import { GoogleAuthGuard } from './guards/google-auth.guard';
 import { LoginGuard } from './guards/login.guard';
 import { RefreshTokenGuard } from './guards/refresh-token.guard';
 
@@ -92,5 +94,42 @@ export class AuthController {
   @HttpCode(HttpStatus.NO_CONTENT)
   logout(@Body() dto: LogoutDto) {
     return this.authService.logout(dto.refresh_token);
+  }
+
+  @Get('google')
+  @UseGuards(GoogleAuthGuard)
+  googleLogin() {
+    // Passport redirects to Google — this handler is never actually reached
+  }
+
+  @Get('google/callback')
+  @Redirect()
+  @UseGuards(AuthGuard('google'))
+  async googleCallback(
+    @AuthUser() user: { id: string },
+    @Query('state') encodedState: string,
+  ) {
+    const pkce = JSON.parse(
+      Buffer.from(encodedState, 'base64url').toString('utf-8'),
+    ) as {
+      client_id: string;
+      redirect_uri: string;
+      code_challenge: string;
+      code_challenge_method: 'S256';
+      original_state?: string;
+    };
+
+    const { redirect_to } = await this.authService.createAuthCode(
+      user.id,
+      pkce.client_id,
+      {
+        redirect_uri: pkce.redirect_uri,
+        code_challenge: pkce.code_challenge,
+        code_challenge_method: pkce.code_challenge_method,
+        state: pkce.original_state,
+      },
+    );
+
+    return { url: redirect_to };
   }
 }
