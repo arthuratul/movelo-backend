@@ -34,6 +34,7 @@ const signupDto: SignupDto = {
   lastName: 'Doe',
   email: 'john@example.com',
   password: 'secret123',
+  confirmPassword: 'secret123',
 };
 
 const createdUser = {
