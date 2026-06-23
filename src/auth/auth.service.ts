@@ -14,8 +14,14 @@ import { MailService } from '../mail/mail.service';
 import { OAuthClientService } from './services/oauth-client.service';
 import { SignupDto } from './dto/signup.dto';
 import { AuthorizeQueryDto } from './dto/authorize-query.dto';
-import { AuthorizeLoginDto } from './dto/authorize-login.dto';
 import { TokenDto } from './dto/token.dto';
+
+interface AuthCodeParams {
+  redirect_uri: string;
+  code_challenge: string;
+  code_challenge_method: 'S256';
+  state?: string;
+}
 
 @Injectable()
 export class AuthService {
@@ -133,7 +139,7 @@ export class AuthService {
       );
     }
 
-    const frontendUrl = this.config.getOrThrow<string>('FRONTEND_URL');
+    const appUrl = this.config.getOrThrow<string>('APP_URL');
     const params = new URLSearchParams({
       client_id: dto.client_id,
       redirect_uri: dto.redirect_uri,
@@ -142,17 +148,55 @@ export class AuthService {
       ...(dto.state ? { state: dto.state } : {}),
     });
 
-    return `${frontendUrl}/login?${params.toString()}`;
+    return `${appUrl}/auth/login?${params.toString()}`;
   }
 
-  async createAuthCode(
-    userId: string,
-    clientId: string,
-    dto: Pick<
-      AuthorizeLoginDto,
-      'code_challenge' | 'code_challenge_method' | 'redirect_uri' | 'state'
-    >,
-  ) {
+  async getLoginPageData(query: {
+    client_id: string;
+    redirect_uri: string;
+  }): Promise<{ clientName: string } | null> {
+    const client = await this.oauthClientService.findById(query.client_id);
+
+    if (!client || !client.redirectUris.includes(query.redirect_uri)) {
+      return null;
+    }
+
+    return { clientName: client.name };
+  }
+
+  async processLogin(body: {
+    email: string;
+    password: string;
+    client_id: string;
+    redirect_uri: string;
+    code_challenge: string;
+    code_challenge_method: string;
+    state?: string;
+  }): Promise<string> {
+    // validateCredentials returns null for wrong credentials,
+    // throws ForbiddenException if email is not verified
+    const user = await this.validateCredentials(body.email, body.password);
+
+    if (!user) {
+      throw new UnauthorizedException('Invalid credentials');
+    }
+
+    // createAuthCode re-validates client + redirect_uri before writing the code
+    const { redirect_to } = await this.createAuthCode(
+      user.userId,
+      body.client_id,
+      {
+        redirect_uri: body.redirect_uri,
+        code_challenge: body.code_challenge,
+        code_challenge_method: body.code_challenge_method as 'S256',
+        state: body.state,
+      },
+    );
+
+    return redirect_to;
+  }
+
+  async createAuthCode(userId: string, clientId: string, dto: AuthCodeParams) {
     const client = await this.oauthClientService.findById(clientId);
 
     if (!client || !client.redirectUris.includes(dto.redirect_uri)) {

@@ -1,29 +1,34 @@
 import {
+  BadRequestException,
   Body,
   Controller,
+  ForbiddenException,
   Get,
   HttpCode,
   HttpStatus,
   Post,
   Query,
   Redirect,
+  Req,
+  Res,
   UseGuards,
+  VERSION_NEUTRAL,
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { ConfigService } from '@nestjs/config';
+import type { Request, Response } from 'express';
 import { AuthService } from './auth.service';
 import { AuthUser } from './decorators/auth-user.decorator';
-import { AuthorizeLoginDto } from './dto/authorize-login.dto';
 import { AuthorizeQueryDto } from './dto/authorize-query.dto';
 import { LogoutDto } from './dto/logout.dto';
 import { SignupDto } from './dto/signup.dto';
 import { TokenDto } from './dto/token.dto';
 import { ClientGuard } from './guards/client.guard';
 import { GoogleAuthGuard } from './guards/google-auth.guard';
-import { LoginGuard } from './guards/login.guard';
 import { RefreshTokenGuard } from './guards/refresh-token.guard';
+import { renderErrorPage, renderLoginPage } from './auth-pages';
 
-@Controller('auth')
+@Controller({ path: 'auth', version: VERSION_NEUTRAL })
 export class AuthController {
   constructor(
     private readonly authService: AuthService,
@@ -48,6 +53,11 @@ export class AuthController {
     }
   }
 
+  /**
+   * Step 1 — Frontend redirects the browser here with PKCE params.
+   * Validates the client and redirect_uri, then redirects to the
+   * backend-hosted login page.
+   */
   @Get('authorize')
   @Redirect()
   async authorize(@Query() dto: AuthorizeQueryDto) {
@@ -55,14 +65,98 @@ export class AuthController {
     return { url };
   }
 
-  @Post('authorize/login')
-  @HttpCode(HttpStatus.OK)
-  @UseGuards(ClientGuard, LoginGuard)
-  authorizeLogin(
-    @AuthUser() user: { userId: string; email: string; clientId: string },
-    @Body() dto: AuthorizeLoginDto,
+  /**
+   * Step 2 — Backend-hosted login form.
+   * Validates the params again (defence-in-depth), then renders the
+   * HTML form. PKCE params ride as hidden fields — the frontend never
+   * handles credentials.
+   */
+  @Get('login')
+  async loginPage(
+    @Query() query: Record<string, string>,
+    @Res() res: Response,
   ) {
-    return this.authService.createAuthCode(user.userId, user.clientId, dto);
+    const data = await this.authService.getLoginPageData({
+      client_id: query['client_id'] ?? '',
+      redirect_uri: query['redirect_uri'] ?? '',
+    });
+
+    if (!data) {
+      return res
+        .status(400)
+        .type('html')
+        .send(renderErrorPage('Invalid or expired authorization request.'));
+    }
+
+    return res.type('html').send(
+      renderLoginPage(
+        {
+          client_id: query['client_id'] ?? '',
+          redirect_uri: query['redirect_uri'] ?? '',
+          code_challenge: query['code_challenge'] ?? '',
+          code_challenge_method: query['code_challenge_method'] ?? '',
+          state: query['state'],
+        },
+        data.clientName,
+        null,
+      ),
+    );
+  }
+
+  /**
+   * Step 3 — HTML form submission.
+   * Validates credentials, creates the auth code, then 302-redirects
+   * the browser to redirect_uri?code=...
+   * On bad credentials: re-renders the form with an error message.
+   */
+  @Post('login')
+  async loginSubmit(@Req() req: Request, @Res() res: Response) {
+    const body = req.body as Record<string, string | undefined>;
+
+    const params = {
+      client_id: body['client_id'] ?? '',
+      redirect_uri: body['redirect_uri'] ?? '',
+      code_challenge: body['code_challenge'] ?? '',
+      code_challenge_method: body['code_challenge_method'] ?? '',
+      state: body['state'],
+    };
+
+    try {
+      const redirectTo = await this.authService.processLogin({
+        email: body['email'] ?? '',
+        password: body['password'] ?? '',
+        ...params,
+      });
+      return res.redirect(302, redirectTo);
+    } catch (err) {
+      if (err instanceof BadRequestException) {
+        return res
+          .status(400)
+          .type('html')
+          .send(renderErrorPage('Invalid authorization request.'));
+      }
+
+      const data = await this.authService.getLoginPageData({
+        client_id: params.client_id,
+        redirect_uri: params.redirect_uri,
+      });
+
+      if (!data) {
+        return res
+          .status(400)
+          .type('html')
+          .send(renderErrorPage('Invalid or expired authorization request.'));
+      }
+
+      const message =
+        err instanceof ForbiddenException
+          ? 'Your email address is not verified. Please check your inbox.'
+          : 'Incorrect email or password.';
+
+      return res
+        .type('html')
+        .send(renderLoginPage(params, data.clientName, message));
+    }
   }
 
   @Post('token')
@@ -96,7 +190,7 @@ export class AuthController {
   @Get('google')
   @UseGuards(GoogleAuthGuard)
   googleLogin() {
-    // Passport redirects to Google — this handler is never actually reached
+    // Passport redirects to Google — this handler body is never reached
   }
 
   @Get('google/callback')

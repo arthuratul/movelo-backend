@@ -8,7 +8,6 @@ import { PrismaModule } from '../prisma/prisma.module';
 import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
 import { ClientGuard } from './guards/client.guard';
-import { LoginGuard } from './guards/login.guard';
 import { RefreshTokenGuard } from './guards/refresh-token.guard';
 import { OAuthClientService } from './services/oauth-client.service';
 import { GoogleStrategy } from './strategies/google.strategy';
@@ -44,7 +43,6 @@ import { GoogleAuthGuard } from './guards/google-auth.guard';
     JwtStrategy,
     GoogleStrategy,
     ClientGuard,
-    LoginGuard,
     RefreshTokenGuard,
     GoogleAuthGuard,
   ],
