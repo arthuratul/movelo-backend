@@ -10,15 +10,25 @@ import hbs from 'hbs';
 
 async function bootstrap() {
   const app = await NestFactory.create<NestExpressApplication>(AppModule);
-  app.setBaseViewsDir(join(__dirname, 'views'));
+  app.setBaseViewsDir(join(__dirname, '..', 'views'));
   app.setViewEngine('hbs');
-  hbs.registerPartials(join(__dirname, 'views', 'partials'));
+  hbs.registerPartials(join(__dirname, '..', 'views', 'partials'));
   const configService = app.get(ConfigService);
   app.setGlobalPrefix('api', {
     exclude: [{ path: 'auth/(.*)', method: RequestMethod.ALL }],
   });
   app.enableVersioning({ type: VersioningType.URI, defaultVersion: '1' });
-  app.use(helmet());
+  const isProd = configService.get<string>('NODE_ENV') === 'production';
+  app.use(
+    helmet({
+      contentSecurityPolicy: {
+        directives: {
+          formAction: null,
+          upgradeInsecureRequests: isProd ? [] : null,
+        },
+      },
+    }),
+  );
   app.enableCors({
     origin: configService.get<string>('FRONTEND_URL'),
     methods: ['GET', 'POST', 'PATCH', 'DELETE'],
