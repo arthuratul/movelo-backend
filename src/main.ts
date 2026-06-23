@@ -1,12 +1,18 @@
 import { RequestMethod, ValidationPipe, VersioningType } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
+import { NestExpressApplication } from '@nestjs/platform-express';
 import { ConfigService } from '@nestjs/config';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
+import { join } from 'path';
 import { AppModule } from './app.module';
 import helmet from 'helmet';
+import hbs from 'hbs';
 
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule);
+  const app = await NestFactory.create<NestExpressApplication>(AppModule);
+  app.setBaseViewsDir(join(__dirname, 'views'));
+  app.setViewEngine('hbs');
+  hbs.registerPartials(join(__dirname, 'views', 'partials'));
   const configService = app.get(ConfigService);
   app.setGlobalPrefix('api', {
     exclude: [{ path: 'auth/(.*)', method: RequestMethod.ALL }],

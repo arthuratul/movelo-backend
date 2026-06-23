@@ -1,0 +1,43 @@
+{{> head}}
+<div class="card">
+  {{> brand}}
+
+  <h1>Sign in</h1>
+  <p class="subtitle">Welcome back. Enter your credentials to continue.</p>
+
+  {{#if error}}
+  <div class="alert">
+    <span class="alert-icon">⚠️</span>
+    <span class="alert-text">{{error}}</span>
+  </div>
+  {{/if}}
+
+  <form method="POST" action="/auth/login">
+    <input type="hidden" name="client_id"             value="{{client_id}}">
+    <input type="hidden" name="redirect_uri"          value="{{redirect_uri}}">
+    <input type="hidden" name="code_challenge"        value="{{code_challenge}}">
+    <input type="hidden" name="code_challenge_method" value="{{code_challenge_method}}">
+    {{#if state}}
+    <input type="hidden" name="state" value="{{state}}">
+    {{/if}}
+
+    <div class="field">
+      <label for="email">Email</label>
+      <input class="input{{#if error}} input-error{{/if}}" type="email" id="email" name="email"
+             required autofocus placeholder="you@example.com">
+    </div>
+
+    <div class="field">
+      <label for="password">Password</label>
+      <input class="input{{#if error}} input-error{{/if}}" type="password" id="password" name="password"
+             required placeholder="Enter your password" minlength="8">
+    </div>
+
+    <button class="btn" type="submit">Sign in</button>
+  </form>
+
+  <hr>
+  <p class="footer">Your credentials are handled securely and never shared with third-party apps.</p>
+</div>
+</body>
+</html>

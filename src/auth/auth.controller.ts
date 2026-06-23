@@ -26,7 +26,6 @@ import { TokenDto } from './dto/token.dto';
 import { ClientGuard } from './guards/client.guard';
 import { GoogleAuthGuard } from './guards/google-auth.guard';
 import { RefreshTokenGuard } from './guards/refresh-token.guard';
-import { renderErrorPage, renderLoginPage } from './auth-pages';
 
 @Controller({ path: 'auth', version: VERSION_NEUTRAL })
 export class AuthController {
@@ -82,25 +81,20 @@ export class AuthController {
     });
 
     if (!data) {
-      return res
-        .status(400)
-        .type('html')
-        .send(renderErrorPage('Invalid or expired authorization request.'));
+      return res.status(400).render('auth-error', {
+        title: 'Authorization Error – Movelo',
+        message: 'Invalid or expired authorization request.',
+      });
     }
 
-    return res.type('html').send(
-      renderLoginPage(
-        {
-          client_id: query['client_id'] ?? '',
-          redirect_uri: query['redirect_uri'] ?? '',
-          code_challenge: query['code_challenge'] ?? '',
-          code_challenge_method: query['code_challenge_method'] ?? '',
-          state: query['state'],
-        },
-        data.clientName,
-        null,
-      ),
-    );
+    return res.render('login', {
+      title: `Sign in – ${data.clientName}`,
+      client_id: query['client_id'] ?? '',
+      redirect_uri: query['redirect_uri'] ?? '',
+      code_challenge: query['code_challenge'] ?? '',
+      code_challenge_method: query['code_challenge_method'] ?? '',
+      state: query['state'] || null,
+    });
   }
 
   /**
@@ -130,10 +124,10 @@ export class AuthController {
       return res.redirect(302, redirectTo);
     } catch (err) {
       if (err instanceof BadRequestException) {
-        return res
-          .status(400)
-          .type('html')
-          .send(renderErrorPage('Invalid authorization request.'));
+        return res.status(400).render('auth-error', {
+          title: 'Authorization Error – Movelo',
+          message: 'Invalid authorization request.',
+        });
       }
 
       const data = await this.authService.getLoginPageData({
@@ -142,10 +136,10 @@ export class AuthController {
       });
 
       if (!data) {
-        return res
-          .status(400)
-          .type('html')
-          .send(renderErrorPage('Invalid or expired authorization request.'));
+        return res.status(400).render('auth-error', {
+          title: 'Authorization Error – Movelo',
+          message: 'Invalid or expired authorization request.',
+        });
       }
 
       const message =
@@ -153,9 +147,11 @@ export class AuthController {
           ? 'Your email address is not verified. Please check your inbox.'
           : 'Incorrect email or password.';
 
-      return res
-        .type('html')
-        .send(renderLoginPage(params, data.clientName, message));
+      return res.render('login', {
+        title: `Sign in – ${data.clientName}`,
+        ...params,
+        error: message,
+      });
     }
   }
 
