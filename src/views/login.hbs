@@ -1,55 +1,62 @@
 {{> head}}
-<div class="card">
-  {{> brand}}
+<div class="flex flex-col items-center justify-center min-h-screen px-4 py-10">
+  <div class="card-lg w-full max-w-[420px]">
+    {{> brand}}
 
-  <h1>Sign in</h1>
-  <p class="subtitle">Welcome back. Enter your credentials to continue.</p>
+    <h1 class="text-title-3 mb-1.5">Sign in</h1>
+    <p class="text-body-sm text-neutral-500 mb-7">Welcome back. Enter your credentials to continue.</p>
 
-  {{#if error}}
-  <div class="alert">
-    <span class="alert-icon">⚠️</span>
-    <span class="alert-text">{{error}}</span>
-  </div>
-  {{/if}}
-
-  <a class="btn-google" href="/auth/google?client_id={{client_id}}&redirect_uri={{redirect_uri}}&code_challenge={{code_challenge}}&code_challenge_method={{code_challenge_method}}{{#if state}}&state={{state}}{{/if}}">
-    <svg width="18" height="18" viewBox="0 0 18 18" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-      <path d="M17.64 9.2c0-.637-.057-1.251-.164-1.84H9v3.481h4.844c-.209 1.125-.843 2.078-1.796 2.717v2.258h2.908C16.548 14.012 17.64 11.788 17.64 9.2z" fill="#4285F4"/>
-      <path d="M9 18c2.43 0 4.467-.806 5.956-2.18l-2.908-2.259c-.806.54-1.837.86-3.048.86-2.344 0-4.328-1.584-5.036-3.711H.957v2.332A8.997 8.997 0 0 0 9 18z" fill="#34A853"/>
-      <path d="M3.964 10.71A5.41 5.41 0 0 1 3.682 9c0-.593.102-1.17.282-1.71V4.958H.957A8.996 8.996 0 0 0 0 9c0 1.452.348 2.827.957 4.042l3.007-2.332z" fill="#FBBC05"/>
-      <path d="M9 3.58c1.321 0 2.508.454 3.44 1.345l2.582-2.58C13.463.891 11.426 0 9 0A8.997 8.997 0 0 0 .957 4.958L3.964 6.29C4.672 4.163 6.656 3.58 9 3.58z" fill="#EA4335"/>
-    </svg>
-    Sign in with Google
-  </a>
-
-  <div class="or-divider"><span>or</span></div>
-
-  <form method="POST" action="/auth/login">
-    <input type="hidden" name="client_id"             value="{{client_id}}">
-    <input type="hidden" name="redirect_uri"          value="{{redirect_uri}}">
-    <input type="hidden" name="code_challenge"        value="{{code_challenge}}">
-    <input type="hidden" name="code_challenge_method" value="{{code_challenge_method}}">
-    {{#if state}}
-    <input type="hidden" name="state" value="{{state}}">
+    {{#if error}}
+    <div class="flex items-start gap-2.5 bg-error-light border border-error/20 rounded-xl px-4 py-3 mb-5">
+      <span class="text-sm flex-shrink-0 pt-px">⚠️</span>
+      <span class="text-[13px] font-medium text-error-dark">{{error}}</span>
+    </div>
     {{/if}}
 
-    <div class="field">
-      <label for="email">Email</label>
-      <input class="input{{#if error}} input-error{{/if}}" type="email" id="email" name="email"
-             required autofocus placeholder="you@example.com">
+    <a class="btn btn-full border border-border bg-surface text-secondary hover:bg-neutral-50 hover:border-neutral-300 shadow-sm"
+       href="/auth/google?client_id={{client_id}}&redirect_uri={{redirect_uri}}&code_challenge={{code_challenge}}&code_challenge_method={{code_challenge_method}}{{#if state}}&state={{state}}{{/if}}">
+      <svg width="18" height="18" viewBox="0 0 18 18" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+        <path d="M17.64 9.2c0-.637-.057-1.251-.164-1.84H9v3.481h4.844c-.209 1.125-.843 2.078-1.796 2.717v2.258h2.908C16.548 14.012 17.64 11.788 17.64 9.2z" fill="#4285F4"/>
+        <path d="M9 18c2.43 0 4.467-.806 5.956-2.18l-2.908-2.259c-.806.54-1.837.86-3.048.86-2.344 0-4.328-1.584-5.036-3.711H.957v2.332A8.997 8.997 0 0 0 9 18z" fill="#34A853"/>
+        <path d="M3.964 10.71A5.41 5.41 0 0 1 3.682 9c0-.593.102-1.17.282-1.71V4.958H.957A8.996 8.996 0 0 0 0 9c0 1.452.348 2.827.957 4.042l3.007-2.332z" fill="#FBBC05"/>
+        <path d="M9 3.58c1.321 0 2.508.454 3.44 1.345l2.582-2.58C13.463.891 11.426 0 9 0A8.997 8.997 0 0 0 .957 4.958L3.964 6.29C4.672 4.163 6.656 3.58 9 3.58z" fill="#EA4335"/>
+      </svg>
+      Sign in with Google
+    </a>
+
+    <div class="flex items-center gap-3 my-5">
+      <div class="flex-1 border-t border-border-subtle"></div>
+      <span class="text-caption">or</span>
+      <div class="flex-1 border-t border-border-subtle"></div>
     </div>
 
-    <div class="field">
-      <label for="password">Password</label>
-      <input class="input{{#if error}} input-error{{/if}}" type="password" id="password" name="password"
-             required placeholder="Enter your password" minlength="8">
-    </div>
+    <form method="POST" action="/auth/login">
+      <input type="hidden" name="client_id"             value="{{client_id}}">
+      <input type="hidden" name="redirect_uri"          value="{{redirect_uri}}">
+      <input type="hidden" name="code_challenge"        value="{{code_challenge}}">
+      <input type="hidden" name="code_challenge_method" value="{{code_challenge_method}}">
+      {{#if state}}
+      <input type="hidden" name="state" value="{{state}}">
+      {{/if}}
 
-    <button class="btn" type="submit">Sign in</button>
-  </form>
+      <div class="flex flex-col gap-1.5 mb-4">
+        <label class="text-sm font-medium text-neutral-700" for="email">Email</label>
+        <input class="input{{#if error}} input-error{{/if}}" type="email" id="email" name="email"
+               required autofocus placeholder="you@example.com">
+      </div>
 
-  <hr>
-  <p class="footer">Your credentials are handled securely and never shared with third-party apps.</p>
+      <div class="flex flex-col gap-1.5 mb-5">
+        <label class="text-sm font-medium text-neutral-700" for="password">Password</label>
+        <input class="input{{#if error}} input-error{{/if}}" type="password" id="password" name="password"
+               required placeholder="Enter your password" minlength="8">
+      </div>
+
+      <button class="btn btn-primary btn-full" type="submit">Sign in</button>
+    </form>
+
+    <div class="border-t border-border-subtle my-6"></div>
+    <p class="text-caption text-center">Your credentials are handled securely and never shared with third-party apps.</p>
+  </div>
 </div>
 </body>
 </html>
