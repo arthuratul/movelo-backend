@@ -1,6 +1,7 @@
 import {
   BadRequestException,
   Body,
+  ConflictException,
   Controller,
   ForbiddenException,
   Get,
@@ -38,6 +39,99 @@ export class AuthController {
   @HttpCode(HttpStatus.CREATED)
   signup(@Body() dto: SignupDto) {
     return this.authService.signup(dto);
+  }
+
+  @Get('signup')
+  signupPage(@Res() res: Response) {
+    const frontendLoginUrl = `${this.config.getOrThrow<string>('FRONTEND_URL')}/login`;
+    return res.render('signup', {
+      title: 'Create Account – Movelo',
+      frontendLoginUrl,
+    });
+  }
+
+  @Post('signup-form')
+  async signupFormSubmit(
+    @Req() req: Request,
+    @Res() res: Response,
+    @Body() body: Record<string, string>,
+  ) {
+    const frontendLoginUrl = `${this.config.getOrThrow<string>('FRONTEND_URL')}/login`;
+
+    const fields = {
+      firstName: (body['firstName'] ?? '').trim(),
+      lastName: (body['lastName'] ?? '').trim(),
+      email: (body['email'] ?? '').trim().toLowerCase(),
+      password: body['password'] ?? '',
+      confirmPassword: body['confirmPassword'] ?? '',
+    };
+
+    const fieldErrors: Record<string, string> = {};
+    if (!fields.firstName) fieldErrors['firstName'] = 'First name is required';
+    if (!fields.lastName) fieldErrors['lastName'] = 'Last name is required';
+    if (!fields.email) {
+      fieldErrors['email'] = 'Email is required';
+    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(fields.email)) {
+      fieldErrors['email'] = 'Enter a valid email address';
+    }
+    if (!fields.password) {
+      fieldErrors['password'] = 'Password is required';
+    } else if (fields.password.length < 8) {
+      fieldErrors['password'] = 'Password must be at least 8 characters';
+    }
+    if (!fields.confirmPassword) {
+      fieldErrors['confirmPassword'] = 'Please confirm your password';
+    } else if (fields.confirmPassword !== fields.password) {
+      fieldErrors['confirmPassword'] = 'Passwords do not match';
+    }
+
+    if (Object.keys(fieldErrors).length > 0) {
+      return res.status(400).render('signup', {
+        title: 'Create Account – Movelo',
+        fields: {
+          firstName: fields.firstName,
+          lastName: fields.lastName,
+          email: fields.email,
+        },
+        fieldErrors,
+        frontendLoginUrl,
+      });
+    }
+
+    try {
+      await this.authService.signup({
+        firstName: fields.firstName,
+        lastName: fields.lastName,
+        email: fields.email,
+        password: fields.password,
+        confirmPassword: fields.confirmPassword,
+      });
+
+      return res.render('signup', {
+        title: 'Create Account – Movelo',
+        success: true,
+        email: fields.email,
+        frontendLoginUrl,
+      });
+    } catch (err) {
+      const error =
+        err instanceof ConflictException
+          ? 'An account with this email already exists'
+          : 'Something went wrong. Please try again.';
+
+      return res
+        .status(err instanceof ConflictException ? 409 : 500)
+        .render('signup', {
+          title: 'Create Account – Movelo',
+          fields: {
+            firstName: fields.firstName,
+            lastName: fields.lastName,
+            email: fields.email,
+          },
+          error,
+          frontendLoginUrl,
+        });
+    }
   }
 
   @Get('verify-email')

@@ -57,6 +57,12 @@
     <div class="border-t border-border-subtle my-6"></div>
     <p class="text-caption text-center">Your credentials are handled securely and never shared with third-party apps.</p>
   </div>
+
+  <p class="text-body-sm text-neutral-500 mt-6 text-center">
+    Don't have an account?
+    <a href="/auth/signup{{#if client_id}}?client_id={{client_id}}&redirect_uri={{redirect_uri}}&code_challenge={{code_challenge}}&code_challenge_method={{code_challenge_method}}{{#if state}}&state={{state}}{{/if}}{{/if}}"
+       class="font-semibold text-primary hover:text-primary-hover transition-colors">Sign up</a>
+  </p>
 </div>
 </body>
 </html>

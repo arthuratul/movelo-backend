@@ -1,0 +1,105 @@
+{{> head}}
+<div class="flex flex-col items-center justify-center min-h-screen px-4 py-10">
+  <div class="card-lg w-full max-w-[420px]">
+    {{> brand}}
+
+    {{#if success}}
+
+    <div class="text-center py-4">
+      <div class="w-14 h-14 bg-success-light rounded-full flex items-center justify-center mx-auto mb-5">
+        <svg width="28" height="28" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+          <path d="M20 4H4C2.9 4 2 4.9 2 6V18C2 19.1 2.9 20 4 20H20C21.1 20 22 19.1 22 18V6C22 4.9 21.1 4 20 4Z" stroke="#16a34a" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/>
+          <path d="M22 6L12 13L2 6" stroke="#16a34a" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+      </div>
+      <h2 class="text-title-3 text-neutral-900 mb-2">Check your inbox</h2>
+      <p class="text-body-sm text-neutral-500 mb-1.5">We sent a confirmation link to</p>
+      <p class="text-body-sm font-semibold text-neutral-800 mb-6">{{email}}</p>
+      <p class="text-caption text-neutral-400 mb-7">
+        Click the link in the email to activate your account. Check your spam folder if you don't see it.
+      </p>
+      <a href="{{frontendLoginUrl}}" class="btn btn-primary btn-full">Go to sign in</a>
+    </div>
+
+    {{else}}
+
+    <h1 class="text-title-3 mb-1.5">Create your account</h1>
+    <p class="text-body-sm text-neutral-500 mb-7">Fast delivery, right at your fingertips.</p>
+
+    {{#if error}}
+    <div class="flex items-start gap-2.5 bg-error-light border border-error/20 rounded-xl px-4 py-3 mb-5">
+      <span class="text-sm flex-shrink-0 pt-px">⚠️</span>
+      <span class="text-[13px] font-medium text-error-dark">{{error}}</span>
+    </div>
+    {{/if}}
+
+    <form method="POST" action="/auth/signup-form">
+
+      <div class="grid grid-cols-2 gap-3 mb-4">
+        <div class="flex flex-col gap-1.5">
+          <label class="text-sm font-medium text-neutral-700" for="firstName">First name</label>
+          <input class="input{{#if fieldErrors.firstName}} input-error{{/if}}" type="text" id="firstName" name="firstName"
+                 required autofocus autocomplete="given-name" placeholder="John"
+                 value="{{fields.firstName}}">
+          {{#if fieldErrors.firstName}}
+          <p class="text-xs text-error">{{fieldErrors.firstName}}</p>
+          {{/if}}
+        </div>
+
+        <div class="flex flex-col gap-1.5">
+          <label class="text-sm font-medium text-neutral-700" for="lastName">Last name</label>
+          <input class="input{{#if fieldErrors.lastName}} input-error{{/if}}" type="text" id="lastName" name="lastName"
+                 required autocomplete="family-name" placeholder="Doe"
+                 value="{{fields.lastName}}">
+          {{#if fieldErrors.lastName}}
+          <p class="text-xs text-error">{{fieldErrors.lastName}}</p>
+          {{/if}}
+        </div>
+      </div>
+
+      <div class="flex flex-col gap-1.5 mb-4">
+        <label class="text-sm font-medium text-neutral-700" for="email">Email address</label>
+        <input class="input{{#if fieldErrors.email}} input-error{{/if}}" type="email" id="email" name="email"
+               required autocomplete="email" placeholder="john@example.com"
+               value="{{fields.email}}">
+        {{#if fieldErrors.email}}
+        <p class="text-xs text-error">{{fieldErrors.email}}</p>
+        {{/if}}
+      </div>
+
+      <div class="flex flex-col gap-1.5 mb-4">
+        <label class="text-sm font-medium text-neutral-700" for="password">Password</label>
+        <input class="input{{#if fieldErrors.password}} input-error{{/if}}" type="password" id="password" name="password"
+               required autocomplete="new-password" placeholder="Min. 8 characters" minlength="8">
+        {{#if fieldErrors.password}}
+        <p class="text-xs text-error">{{fieldErrors.password}}</p>
+        {{else}}
+        <p class="text-xs text-neutral-400">Min. 8 characters</p>
+        {{/if}}
+      </div>
+
+      <div class="flex flex-col gap-1.5 mb-6">
+        <label class="text-sm font-medium text-neutral-700" for="confirmPassword">Confirm password</label>
+        <input class="input{{#if fieldErrors.confirmPassword}} input-error{{/if}}" type="password" id="confirmPassword" name="confirmPassword"
+               required autocomplete="new-password" placeholder="Re-enter your password">
+        {{#if fieldErrors.confirmPassword}}
+        <p class="text-xs text-error">{{fieldErrors.confirmPassword}}</p>
+        {{/if}}
+      </div>
+
+      <button class="btn btn-primary btn-full" type="submit">Create account</button>
+    </form>
+
+    <div class="border-t border-border-subtle my-6"></div>
+    <p class="text-caption text-center">Your credentials are handled securely and never shared with third-party apps.</p>
+
+    {{/if}}
+  </div>
+
+  <p class="text-body-sm text-neutral-500 mt-6">
+    Already have an account?
+    <a href="{{frontendLoginUrl}}" class="font-semibold text-primary hover:text-primary-hover transition-colors">Sign in</a>
+  </p>
+</div>
+</body>
+</html>
